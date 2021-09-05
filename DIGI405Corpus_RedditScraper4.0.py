@@ -12,7 +12,7 @@ from pathlib import Path
 
 api = PushshiftAPI()
 
-#Collection of UTC date-times for coronavirus case 0 in each country
+#Dicts of UTC date-times for coronavirus case 0 in each country
 month_after_dict = dict({"hongkong":"1582333200", 
                "singapore":"1582369200", 
                "newzealand":"1585306800", 
@@ -53,7 +53,7 @@ def get_post_ids(subreddit, query, limit, time_period):
                                after=after, 
                                before=before, 
                                fields=['id','num_comments'])
-    if len(post_ids)>0:                                                        
+    if post_ids != None and len(post_ids) > 0:                                                        
         print(f'Retrieved {len(post_ids)} posts from Pushshift')
     else:
         print('No posts found matching the search criteria')
@@ -64,12 +64,12 @@ def get_post_ids(subreddit, query, limit, time_period):
     return(post_df)
 
 
-def get_comment_ids(post_ids):
+def get_comment_ids(post_ids, min_comments):
     """Collect ids of all comments in given list of post ids"""
     t = time.perf_counter()
     # filtering low num of comment posts for quality and reduce load on api
-    filtered_ids = post_ids[post_ids['num_comments'] > 1]
-    print(f"Collecting comment IDs from {len(filtered_ids)} post(s) with > 1 comments")
+    filtered_ids = post_ids[post_ids['num_comments'] > min_comments]
+    print(f"Collecting comment IDs from {len(filtered_ids)} post(s) with > {min_comments} comments")
     print("This may take some time...")   
     #searches pushshift for all posts in post_ids list
     comment_ids = api.search_submission_comment_ids(ids=filtered_ids['id']) 
@@ -118,7 +118,7 @@ def chunkList(initialList, chunkSize):
 
 
 def clean_df(df):
-    """Add any extra necessary cleaning steps here..."""
+    """Add any extra necessary cleaning steps here"""
     clean_df = df.drop_duplicates(subset='body')
     clean_df = (clean_df[clean_df['author']!='[deleted]']).reset_index()
     if input("Erase usernames from data? Y/N ").upper() == "Y":
@@ -126,6 +126,7 @@ def clean_df(df):
     return clean_df
 
 def save_csv(df, subreddit, query, folder):
+    """Saves all commetns individually to single csv"""
     try:
         Path(folder).mkdir(parents=True, exist_ok=True)
     except FileExistsError:
@@ -154,6 +155,7 @@ def save_corpus(df, folder) :
         print(f"Time taken: {elapsed_time:.0f} second(s)")
 
 def get_inputs():
+    """Asks user for inputs to search pushshift for"""
     subreddit = input("Subreddit name to search through? ")
     query = input("Keyword to search post titles for? ")
     limit = int(input("Limit number of posts to: "))
@@ -165,26 +167,19 @@ def get_inputs():
     
     return(subreddit, query, limit, time_period)
     
-# def main(): 
-done = False
-while not done:
+
+def main(): 
     subreddit, query, limit, time_period = get_inputs()
+    min_comments = int(input("Minimum comment threshold to collect post comments? "))
     t_total = time.perf_counter()
     pids = get_post_ids(subreddit, query, limit, time_period)
-    if len(pids) > 0:
-        cids = get_comment_ids(pids)
-        comms = get_comments(cids)
-        elapsed_time = time.perf_counter() - t_total
-        print(f"TOTAL TIME TAKEN: {elapsed_time:.0f} second(s)")
-        folder = f"{subreddit}_{time_period}_keyword_{query}"
-        save_csv(comms, subreddit, query, folder) #df cleaning happens here
-        save_corpus(comms, folder)
-        done = True
-    else:
-        done = False
-        print("Please try again with different search critera (hit enter) or quit (\"q\")")
-        response = input()
-        if response == 'q':
-            break
+    cids = get_comment_ids(pids, min_comments)
+    comms = get_comments(cids)
+    elapsed_time = time.perf_counter() - t_total
+    print(f"TOTAL TIME TAKEN: {elapsed_time:.0f} second(s)")
+    folder = f"{subreddit}_{time_period}_keyword_{query}"
+    save_csv(comms, subreddit, query, folder) #df cleaning happens here
+    save_corpus(comms, folder)
+
         
-# main()
+main()
