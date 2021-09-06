@@ -59,6 +59,7 @@ def get_post_ids(subreddit, query, limit, time_period):
         print('No posts found matching the search criteria')
         return
     elapsed_time = time.perf_counter() - t
+
     print(f"Time taken: {elapsed_time:.0f} second(s)")
     post_df = pd.DataFrame(post_ids) #Turn response object into df to process
     return(post_df)
@@ -69,11 +70,14 @@ def get_comment_ids(post_ids, min_comments):
     t = time.perf_counter()
     # filtering low num of comment posts for quality and reduce load on api
     filtered_ids = post_ids[post_ids['num_comments'] > min_comments]
+
     print(f"Collecting comment IDs from {len(filtered_ids)} post(s) with > {min_comments} comments")
     print("This may take some time...")   
+
     #searches pushshift for all posts in post_ids list
     comment_ids = api.search_submission_comment_ids(ids=filtered_ids['id']) 
     comment_ids = list(comment_ids)
+
     print(f"Collected {len(comment_ids)} comment IDs") 
     elapsed_time = time.perf_counter() - t
     print(f"Time taken: {elapsed_time:.0f} second(s)")
@@ -84,11 +88,12 @@ def get_comments(comment_ids):
     """Takes list of comment ids and returns df of comments from api"""
     columns = ['author','body','created_utc','permalink']
     comments_df = pd.DataFrame(columns=columns)
+    chunk_size = 300
     #api hangs if request is excessive so split into chunks
-    if len(comment_ids) > 300:
+    if len(comment_ids) > chunk_size:
         n=1
-        print("Chunking comment ids as >300 comments found")
-        chunked = chunkList(comment_ids, chunkSize= 300)
+        print(f"Chunking comment ids as > {chunk_size} comments found")
+        chunked = chunk_list(comment_ids, chunk_size)
         for chunk in chunked:
             t = time.perf_counter()
             print(f"Collecting {len(chunk)} comments. Chunk {n} of {len(chunked)}.")
@@ -109,12 +114,12 @@ def get_comments(comment_ids):
     return comments_df
 
 
-def chunkList(initialList, chunkSize):
+def chunk_list(initial_list, chunk_size):
     """Chunks a list into sub lists that have a length equal to chunkSize."""
-    finalList = []
-    for i in range(0, len(initialList), chunkSize):
-        finalList.append(initialList[i:i+chunkSize])
-    return finalList
+    final_list = []
+    for i in range(0, len(initial_list), chunk_size):
+        final_list.append(initial_list[i:i+chunk_size])
+    return final_list
 
 
 def clean_df(df):
@@ -163,6 +168,7 @@ def get_inputs():
         time_period = "precovid"
     else:
         time_period = "postcovid"
+
     print(f"Search period: {time_period}")
     
     return(subreddit, query, limit, time_period)
@@ -180,6 +186,5 @@ def main():
     folder = f"{subreddit}_{time_period}_keyword_{query}"
     save_csv(comms, subreddit, query, folder) #df cleaning happens here
     save_corpus(comms, folder)
-
         
 main()
