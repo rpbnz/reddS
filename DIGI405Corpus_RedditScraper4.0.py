@@ -131,7 +131,7 @@ def clean_df(df):
     return clean_df
 
 def save_csv(df, subreddit, query, folder):
-    """Saves all commetns individually to single csv"""
+    """Saves all comments individually to single csv"""
     try:
         Path(folder).mkdir(parents=True, exist_ok=True)
     except FileExistsError:
